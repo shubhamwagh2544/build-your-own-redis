@@ -1,9 +1,11 @@
 const net = require('net');
 const Parser = require('redis-parser');
+const {checkIfKeyExist} = require("./util");
 
 const server = net.createServer();
 const port = 8000;
 const hostname = '127.0.0.1';
+const redisUrl = `https://redis.io/learn/howtos/quick-start/cheat-sheet`;
 
 const store = {};
 
@@ -14,11 +16,84 @@ server.on('connection', (socket) => {
         const parser = new Parser({
             returnReply: function (reply) {
                 console.log(reply);
+                let message = 'ERR: error processing data';
 
-                if (reply.length === 1 && reply[0] === 'ping') {
-                    socket.write(`+pong\r\n`);
-                } else {
-                    socket.write(`+OK\r\n`);
+                // switch case for commands
+                const command = reply[0];
+                switch (command) {
+
+                    // STRINGS/NUMBERS
+                    case 'ping': {
+                        if (reply.length === 1) {
+                            message = 'pong';
+                            socket.write(`+${message}\r\n`);
+                            return;
+                        }
+                        else if (reply.length > 1) {
+                            message = `ping <no-opt> should be single message to redis server`
+                            socket.write(`-${message}\r\n`);
+                        }
+                        else {
+                            socket.write(`-${message}\r\n`);
+                        }
+                    }
+                    break;
+
+                    case 'set': {
+                        if (reply.length === 3) {
+                            const key = reply[1];
+                            const value = reply[2];
+
+                            store[key] = value;
+                            socket.write(`+OK\r\n`);
+                            return;
+                        }
+                        else if (reply.length < 3 || reply.length > 3) {
+                            message = `set <key> <value> should be format`
+                            socket.write(`-${message}\r\n`);
+                        }
+                        else {
+                            socket.write(`-${message}\r\n`);
+                        }
+                    }
+                    break;
+
+                    case 'get': {
+                        if (reply.length === 2) {
+                            const key = reply[1];
+
+                            const value = store[key];
+                            if (!value) {
+                                socket.write(`$-1\r\n`);
+                                return;
+                            }
+
+                            socket.write(`$${value.length}\r\n${value}\r\n`);
+                        }
+                        else if (reply.length > 2 || reply.length < 2) {
+                            message = `get <key> should be format`
+                            socket.write(`-${message}\r\n`);
+                        }
+                        else {
+                            socket.write(`-${message}\r\n`);
+                        }
+                    }
+                    break;
+
+                    // custom command
+                    case 'store': {
+                        // print all keys and values present in store
+                        for (const key in store) {
+                            console.log(key, ' ', store[key])
+                        }
+                        socket.write(`+OK\r\n`);
+                    }
+                    break;
+
+                    default: {
+                        message = `<command> format wrong. please visit ${redisUrl}`;
+                        socket.write(`-${message}\r\n`);
+                    }
                 }
             },
             returnError: function (error) {
