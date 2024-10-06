@@ -1,6 +1,6 @@
 const net = require('net');
 const Parser = require('redis-parser');
-const {checkIfKeyExist} = require("./util");
+const {checkIfKeyExist, createSerializedArrayResult} = require("./util");
 
 const server = net.createServer();
 const port = 8000;
@@ -49,7 +49,7 @@ server.on('connection', (socket) => {
                             return;
                         }
                         else if (reply.length < 3 || reply.length > 3) {
-                            message = `set <key> <value> should be format`
+                            message = `ERR syntax error`
                             socket.write(`-${message}\r\n`);
                         }
                         else {
@@ -71,10 +71,35 @@ server.on('connection', (socket) => {
                             socket.write(`$${value.length}\r\n${value}\r\n`);
                         }
                         else if (reply.length > 2 || reply.length < 2) {
-                            message = `get <key> should be format`
+                            message = `ERR wrong number of arguments for 'get' command`
                             socket.write(`-${message}\r\n`);
                         }
                         else {
+                            socket.write(`-${message}\r\n`);
+                        }
+                    }
+                    break;
+
+                    case 'mget': {
+                        if (reply.length) {
+                            const keys = reply.splice(1);
+                            const result = [];
+
+                            for (const key of keys) {
+                                if (store[key]) {
+                                    result.push(`${store[key]}`)
+                                }
+                                else {
+                                    result.push(`nil`)
+                                }
+                            }
+
+                            // create a serialized string
+                            const serializedArray = createSerializedArrayResult(result);
+                            socket.write(serializedArray)
+                        }
+                        else {
+                            message = `mget [key...] should be format`
                             socket.write(`-${message}\r\n`);
                         }
                     }
