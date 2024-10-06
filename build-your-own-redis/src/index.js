@@ -1,6 +1,7 @@
 const net = require('net');
 const Parser = require('redis-parser');
 const {checkIfKeyExist, createSerializedArrayResult} = require("./util");
+const repl = require("node:repl");
 
 const server = net.createServer();
 const port = 8000;
@@ -62,12 +63,13 @@ server.on('connection', (socket) => {
                         if (reply.length === 2) {
                             const key = reply[1];
 
-                            const value = store[key];
+                            let value = store[key];
                             if (!value) {
                                 socket.write(`$-1\r\n`);
                                 return;
                             }
 
+                            value = value.toString();
                             socket.write(`$${value.length}\r\n${value}\r\n`);
                         }
                         else if (reply.length > 2 || reply.length < 2) {
@@ -100,6 +102,33 @@ server.on('connection', (socket) => {
                         }
                         else {
                             message = `mget [key...] should be format`
+                            socket.write(`-${message}\r\n`);
+                        }
+                    }
+                    break;
+
+                    case 'incr': {
+                        if (reply.length === 2) {
+                            const key = reply[1];
+                            if (!checkIfKeyExist(key, store)) {
+                                socket.write(`$-1\r\n`);
+                                return;
+                            }
+
+                            let value = store[key];
+                            value = parseInt(value, 10);
+                            if (isNaN(value)) {
+                                message = 'ERR value is not an integer or out of range';
+                                socket.write(`-${message}\r\n`);
+                                return;
+                            }
+                            value += 1;
+                            store[key] = value;
+
+                            socket.write(`:${value}\r\n`)
+                        }
+                        else {
+                            message = `ERR syntax error`
                             socket.write(`-${message}\r\n`);
                         }
                     }
