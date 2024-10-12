@@ -14,8 +14,7 @@ function checkIfKeyExist(key, object) {
     return object.hasOwnProperty(key);
 }
 
-function createSerializedArrayResult(result) {
-    // *2\r\n$5\r\nhello\r\n$5\r\nworld\r\n
+function deserializer(result) {
     let resultString = '';
     let terminator = '\r\n';
 
@@ -35,7 +34,34 @@ function createSerializedArrayResult(result) {
     return resultString;
 }
 
+function serializer(data) {
+    const result = [];
+    const redisIgnoreCommands = ["COMMAND", "INFO", "SERVER", "DOCS"];
+
+    if (typeof data !== 'string') {
+        return [];
+    }
+    if (data.startsWith('*')) {
+        // data is an array
+        data = data.slice(1).split('\r\n').filter((item) => item !== '').slice(1);
+        // check array content valid
+        if (data.length % 2 !== 0) {
+            return 'Error: invalid request';
+        }
+        for (let i = 0; i < data.length; i += 2) {
+            const length = parseInt(data[i].slice(1));
+            if (data[i + 1].length !== length) {
+                console.log('Error: error at parsing data');
+            }
+            // result.push(!redisIgnoreCommands.includes(data[i + 1]) ? data[i + 1] : 'nil');
+            result.push(data[i + 1]);
+        }
+    }
+    return result;
+}
+
 module.exports = {
     checkIfKeyExist,
-    createSerializedArrayResult
+    deserializer,
+    serializer
 }
