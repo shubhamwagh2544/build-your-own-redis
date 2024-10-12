@@ -42,6 +42,7 @@ function serializer(data) {
         return [];
     }
     if (data.startsWith('*')) {
+        data = data.trim();
         // data is an array
         data = data.slice(1).split('\r\n').filter((item) => item !== '').slice(1);
         // check array content valid
@@ -60,8 +61,54 @@ function serializer(data) {
     return result;
 }
 
+function redisRegexPattern(pattern, store) {
+    // Escape special regex characters, except for Redis wildcards: *, ?, [, ]
+    pattern = pattern.replace(/([.+^$()|[\]\\])/g, '\\$1');
+
+    pattern = pattern                       // Convert Redis patterns to regex equivalents
+        .replace(/\?/g, '.')                // Convert ? to .
+        .replace(/\*/g, '.*')               // Convert * to .*
+        .replace(/\[([^\]]+)\]/g, '[$1]');  // Leave [ae], [a-b], [^e] intact
+
+    const result = [];
+
+    // Add start (^) and end ($) anchors to match the whole string
+    const regex = new RegExp('^' + pattern + '$');
+    Object.keys(store).forEach(key => {
+        if (regex.test(key)) {
+            result.push(key);
+        }
+    })
+
+    return result;
+}
+
+function checkKeysExists(keys, store) {
+    const result = [];
+
+    for (const key of keys) {
+        if (store[key]) {
+            result.push(`${store[key]}`)
+        } else {
+            result.push(`nil`)
+        }
+    }
+    return result;
+}
+
+function processBulkString(data) {
+    // $<length>\r\n<data>\r\n
+    data = data.trim();
+    let result = '';
+    result = '$' + data.length + '\r\n' + data + '\r\n';
+    return result;
+}
+
 module.exports = {
     checkIfKeyExist,
     deserializer,
-    serializer
+    serializer,
+    redisRegexPattern,
+    checkKeysExists,
+    processBulkString
 }
