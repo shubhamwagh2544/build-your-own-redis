@@ -83,7 +83,7 @@ server.on('connection', (socket) => {
                 case 'mget': {
                     if (reply.length > 1) {
                         const keys = reply.splice(1);
-                        const result = checkKeysExists(keys, store);
+                        const result = checkKeysExists(keys, store).result;
 
                         // create a serialized string
                         const serializedArray = deserializer(result);
@@ -131,6 +131,18 @@ server.on('connection', (socket) => {
                         socket.write(serializedArray);
                     } else {
                         message = `ERR wrong number of arguments for ${command} command`
+                        socket.write(`-${message}\r\n`);
+                    }
+                }
+                    break;
+
+                case 'exists': {
+                    if (reply.length > 1) {
+                        const keys = reply.slice(1);
+                        const count = checkKeysExists(keys, store).count;
+                        socket.write(`:${count}\r\n`)
+                    } else {
+                        message = `exists [key...] should be format`
                         socket.write(`-${message}\r\n`);
                     }
                 }

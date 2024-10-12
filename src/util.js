@@ -84,16 +84,20 @@ function redisRegexPattern(pattern, store) {
 }
 
 function checkKeysExists(keys, store) {
-    const result = [];
+    const data = {
+        result: [],
+        count: 0
+    };
 
     for (const key of keys) {
         if (store[key]) {
-            result.push(`${store[key]}`)
+            data.count++;
+            data.result.push(`${store[key]}`)
         } else {
-            result.push(`nil`)
+            data.result.push(`nil`)
         }
     }
-    return result;
+    return data;
 }
 
 function processBulkString(data) {
