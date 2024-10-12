@@ -1,12 +1,4 @@
 function checkIfKeyExist(key, object) {
-    // let keys = Object.keys(object);
-    // keys.forEach(k => {
-    //     if (k === key) {
-    //         return true;
-    //     }
-    // })
-    // return false;
-
     // 1
     // return key in object;
 

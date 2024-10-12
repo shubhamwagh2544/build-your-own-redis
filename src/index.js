@@ -1,19 +1,21 @@
 const net = require('net');
 const {
-    checkIfKeyExist,
     deserializer,
     serializer,
     redisRegexPattern,
     checkKeysExists,
     processBulkString, deleteMultipleKeys
 } = require("./util");
+const {version} = require('../package.json');
 
 const server = net.createServer();
 const port = 8000;
 const hostname = '127.0.0.1';
 const redisUrl = `https://redis.io/learn/howtos/quick-start/cheat-sheet`;
+let totalCommandsProcessed = 0;
 
 const store = {};
+console.log(version);
 
 server.on('connection', (socket) => {
     console.log('client connected: ', socket.address());
@@ -27,9 +29,11 @@ server.on('connection', (socket) => {
         const command = reply[0].toLowerCase();
         try {
             switch (command) {
-                // STRINGS/NUMBERS
+                // BASIC
                 case 'ping': {
                     if (reply.length === 1) {
+                        totalCommandsProcessed += 1;
+
                         message = 'PONG';
                         socket.write(`+${message}\r\n`);
                         return;
@@ -44,6 +48,8 @@ server.on('connection', (socket) => {
 
                 case 'set': {
                     if (reply.length === 3) {
+                        totalCommandsProcessed += 1;
+
                         const key = reply[1];
                         const value = reply[2];
 
@@ -68,6 +74,7 @@ server.on('connection', (socket) => {
                             socket.write(`$-1\r\n`);
                             return;
                         }
+                        totalCommandsProcessed += 1;
 
                         value = value.toString();
                         socket.write(`$${value.length}\r\n${value}\r\n`);
@@ -82,6 +89,8 @@ server.on('connection', (socket) => {
 
                 case 'mget': {
                     if (reply.length > 1) {
+                        totalCommandsProcessed += 1;
+
                         const keys = reply.splice(1);
                         const result = checkKeysExists(keys, store).result;
 
@@ -97,6 +106,8 @@ server.on('connection', (socket) => {
 
                 case 'del': {
                     if (reply.length > 1) {
+                        totalCommandsProcessed += 1;
+
                         const keys = reply.splice(1);
                         const count = deleteMultipleKeys(keys, store).count;
                         socket.write(`:${count}\r\n`)
@@ -110,7 +121,7 @@ server.on('connection', (socket) => {
                 case 'incr': {
                     if (reply.length === 2) {
                         const key = reply[1];
-                        if (!checkIfKeyExist(key, store)) {
+                        if (!store[key]) {
                             socket.write(`$-1\r\n`);
                             return;
                         }
@@ -122,6 +133,8 @@ server.on('connection', (socket) => {
                             socket.write(`-${message}\r\n`);
                             return;
                         }
+                        totalCommandsProcessed += 1;
+
                         value += 1;
                         store[key] = value;
 
@@ -136,6 +149,8 @@ server.on('connection', (socket) => {
                 // GENERIC
                 case 'keys': {
                     if (reply.length === 2) {
+                        totalCommandsProcessed += 1;
+
                         const pattern = reply[1];
                         const result = redisRegexPattern(pattern, store);
                         const serializedArray = deserializer(result);
@@ -150,6 +165,8 @@ server.on('connection', (socket) => {
 
                 case 'exists': {
                     if (reply.length > 1) {
+                        totalCommandsProcessed += 1;
+
                         const keys = reply.slice(1);
                         const count = checkKeysExists(keys, store).count;
                         socket.write(`:${count}\r\n`)
@@ -160,7 +177,7 @@ server.on('connection', (socket) => {
                 }
                     break;
 
-                // custom command
+                // CUSTOM
                 case 'store': {
                     // print all keys and values present in store
                     for (const key in store) {
@@ -169,6 +186,50 @@ server.on('connection', (socket) => {
                     socket.write(`+OK\r\n`);
                 }
                     break;
+
+                // INFO
+                /*case 'info': {
+                    if (reply.length > 1) {
+                        message = `ERR wrong number of arguments for ${command} command`
+                        socket.write(`-${message}\r\n`);
+                    }
+                    totalCommandsProcessed += 1;
+
+                    let serverInfo =
+                        `
+                        # Server
+                        redis_version: ${version}
+                        os: ${process.platform}-${process.arch}
+                        process_id: ${process.pid}
+                        uptime_in_seconds: ${process.uptime()}
+                        tcp_port: ${port}
+
+                        # Clients
+                        connected_clients: ${server.connections}
+                        blocked_clients: 0
+
+                        # Memory
+                        used_memory: ${process.memoryUsage().heapUsed}
+                        used_memory_human: ${(process.memoryUsage().heapUsed / (1024 * 1024)).toFixed(2)}M
+                        used_memory_peak: ${process.memoryUsage().heapTotal}
+                        used_memory_peak_human: ${(process.memoryUsage().heapTotal / (1024 * 1024)).toFixed(2)}M
+
+                        # Stats
+                        total_connections_received: ${server.connections}
+                        total_commands_processed: ${totalCommandsProcessed}
+
+                        # Replication
+                        role: master
+                        connected_slaves: 0
+
+                        # CPU
+                        used_cpu_sys: ${process.cpuUsage().system}
+                        used_cpu_user: ${process.cpuUsage().user}
+                    `;
+                    //serverInfo = processBulkString(serverInfo);
+                    socket.write(`$${serverInfo.length}\r\n${serverInfo}\r\n`);
+                }
+                    break;*/
 
                 default: {
                     message = `Wrong Command: ${command}. Please visit ${redisUrl}`;
@@ -193,4 +254,8 @@ server.on('connection', (socket) => {
     })
 })
 
-server.listen(port, hostname, () => console.log(`custom redis server started on ${hostname}:${port}`));
+server.listen(
+    port,
+    hostname,
+    () => console.log(`custom redis server started on ${hostname}:${port}`)
+);
