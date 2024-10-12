@@ -15,7 +15,7 @@ function checkIfKeyExist(key, object) {
 }
 
 function deserializer(result) {
-    let resultString = '';
+    let resultString;
     let terminator = '\r\n';
 
     resultString = '*' + result.length + terminator;
@@ -36,7 +36,7 @@ function deserializer(result) {
 
 function serializer(data) {
     const result = [];
-    const redisIgnoreCommands = ["COMMAND", "INFO", "SERVER", "DOCS"];
+    // const redisIgnoreCommands = ["COMMAND", "INFO", "SERVER", "DOCS"];
 
     if (typeof data !== 'string') {
         return [];
@@ -103,9 +103,24 @@ function checkKeysExists(keys, store) {
 function processBulkString(data) {
     // $<length>\r\n<data>\r\n
     data = data.trim();
-    let result = '';
+    let result;
     result = '$' + data.length + '\r\n' + data + '\r\n';
     return result;
+}
+
+function deleteMultipleKeys(keys, store) {
+    const data = {
+        result: [],
+        count: 0
+    };
+    for (const key of keys) {
+        if (store[key]) {
+            data.count++;
+            data.result.push(`${store[key]}`)
+            delete store[key];
+        }
+    }
+    return data;
 }
 
 module.exports = {
@@ -114,5 +129,6 @@ module.exports = {
     serializer,
     redisRegexPattern,
     checkKeysExists,
-    processBulkString
+    processBulkString,
+    deleteMultipleKeys
 }

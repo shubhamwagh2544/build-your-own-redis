@@ -5,7 +5,7 @@ const {
     serializer,
     redisRegexPattern,
     checkKeysExists,
-    processBulkString
+    processBulkString, deleteMultipleKeys
 } = require("./util");
 
 const server = net.createServer();
@@ -90,6 +90,18 @@ server.on('connection', (socket) => {
                         socket.write(serializedArray)
                     } else {
                         message = `mget [key...] should be format`
+                        socket.write(`-${message}\r\n`);
+                    }
+                }
+                    break;
+
+                case 'del': {
+                    if (reply.length > 1) {
+                        const keys = reply.splice(1);
+                        const count = deleteMultipleKeys(keys, store).count;
+                        socket.write(`:${count}\r\n`)
+                    } else {
+                        message = `del [key...] should be format`
                         socket.write(`-${message}\r\n`);
                     }
                 }
